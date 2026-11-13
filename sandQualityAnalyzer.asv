@@ -1,0 +1,575 @@
+function sandQualityAnalyzer()
+    % SAND QUALITY VALIDATION SYSTEM
+    % Automatic preprocessing, thermal heat map, and quality analysis
+    
+    % Create main figure
+    fig = uifigure('Name', 'Sand Quality Analyzer', ...
+                   'Position', [100 100 1200 750], ...
+                   'Color', [0.94 0.94 0.94], ...
+                   'Resize', 'off');
+    
+    % Main grid layout
+    mainGrid = uigridlayout(fig, [2 1], ...
+                           'RowHeight', {80, '1x'}, ...
+                           'ColumnWidth', {'1x'});
+    
+    % Header panel with buttons
+    headerPanel = uipanel(mainGrid, ...
+                         'Title', 'Sand Quality Validation System', ...
+                         'FontSize', 18, ...
+                         'FontWeight', 'bold', ...
+                         'BackgroundColor', [0.15 0.3 0.5], ...
+                         'ForegroundColor', 'white');
+    
+    % Header buttons (3 buttons only)
+    headerGrid = uigridlayout(headerPanel, [1 3], ...
+                             'ColumnWidth', {'1x', '1x', '1x'}, ...
+                             'Padding', [30 10 30 10]);
+    
+    % Input Button
+    inputBtn = uibutton(headerGrid, 'push', ...
+                      'Text', 'Input Image', ...
+                      'FontSize', 16, ...
+                      'BackgroundColor', [0.2 0.6 0.2], ...
+                      'FontColor', 'white', ...
+                      'FontWeight', 'bold', ...
+                      'ButtonPushedFcn', @(btn,event) loadImage());
+    
+    % Reset All Button
+    resetBtn = uibutton(headerGrid, 'push', ...
+                       'Text', 'Reset All', ...
+                       'FontSize', 16, ...
+                       'BackgroundColor', [0.7 0.4 0.2], ...
+                       'FontColor', 'white', ...
+                       'FontWeight', 'bold', ...
+                       'ButtonPushedFcn', @(btn,event) resetAll());
+    
+    % Exit Button
+    exitBtn = uibutton(headerGrid, 'push', ...
+                      'Text', 'Exit', ...
+                      'FontSize', 16, ...
+                      'BackgroundColor', [0.6 0.2 0.2], ...
+                      'FontColor', 'white', ...
+                      'FontWeight', 'bold', ...
+                      'ButtonPushedFcn', @(btn,event) close(fig));
+    
+    % Main content panel (bottom)
+    contentPanel = uipanel(mainGrid, ...
+                          'BackgroundColor', [0.98 0.98 0.98]);
+    
+    contentGrid = uigridlayout(contentPanel, [1 3], ...
+                              'ColumnWidth', {'1x', '1x', '1x'}, ...
+                              'Padding', [10 10 10 10]);
+    
+    % Left: Original Image
+    imagePanel1 = uipanel(contentGrid, ...
+                         'Title', 'Original Sand Image', ...
+                         'FontSize', 13, ...
+                         'FontWeight', 'bold', ...
+                         'BackgroundColor', 'white');
+    
+    imageGrid1 = uigridlayout(imagePanel1, [2 1], ...
+                             'RowHeight', {'1x', 30});
+    
+    imageAxes1 = uiaxes(imageGrid1);
+    imageAxes1.XTick = [];
+    imageAxes1.YTick = [];
+    imageAxes1.Box = 'on';
+    imageAxes1.BackgroundColor = [0.95 0.95 0.95];
+    axis(imageAxes1, 'image');
+    title(imageAxes1, 'No Image Loaded', 'FontSize', 12);
+    
+    statusLabel1 = uilabel(imageGrid1, ...
+                          'Text', 'Status: Waiting for input', ...
+                          'FontSize', 11, ...
+                          'FontColor', [0.3 0.3 0.3], ...
+                          'HorizontalAlignment', 'center', ...
+                          'FontWeight', 'bold');
+    
+    % Center: Thermal Heat Map
+    imagePanel2 = uipanel(contentGrid, ...
+                         'Title', 'Thermal Heat Map Analysis', ...
+                         'FontSize', 13, ...
+                         'FontWeight', 'bold', ...
+                         'BackgroundColor', 'white');
+    
+    imageGrid2 = uigridlayout(imagePanel2, [2 1], ...
+                             'RowHeight', {'1x', 30});
+    
+    imageAxes2 = uiaxes(imageGrid2);
+    imageAxes2.XTick = [];
+    imageAxes2.YTick = [];
+    imageAxes2.Box = 'on';
+    imageAxes2.BackgroundColor = [0.95 0.95 0.95];
+    axis(imageAxes2, 'image');
+    title(imageAxes2, 'No Analysis', 'FontSize', 12);
+    
+    statusLabel2 = uilabel(imageGrid2, ...
+                          'Text', 'Status: Waiting for analysis', ...
+                          'FontSize', 11, ...
+                          'FontColor', [0.3 0.3 0.3], ...
+                          'HorizontalAlignment', 'center', ...
+                          'FontWeight', 'bold');
+    
+    % Right: Results Panel
+    resultsPanel = uipanel(contentGrid, ...
+                          'Title', 'Quality Analysis Results', ...
+                          'FontSize', 13, ...
+                          'FontWeight', 'bold', ...
+                          'BackgroundColor', 'white');
+    
+    resultsGrid = uigridlayout(resultsPanel, [9 1], ...
+                              'RowHeight', {30, 45, 80, 25, 25, 30, 30, 35, '1x'}, ...
+                              'Padding', [10 10 10 10]);
+    
+    % Quality grade display
+    qualityLabel = uilabel(resultsGrid, ...
+                          'Text', 'Sand Quality Grade:', ...
+                          'FontSize', 14, ...
+                          'FontWeight', 'bold', ...
+                          'FontColor', [0.2 0.2 0.2]);
+    
+    qualityValue = uilabel(resultsGrid, ...
+                          'Text', 'Not Analyzed', ...
+                          'FontSize', 24, ...
+                          'FontWeight', 'bold', ...
+                          'FontColor', [0.5 0.5 0.5], ...
+                          'HorizontalAlignment', 'center', ...
+                          'BackgroundColor', [0.95 0.95 0.95]);
+    
+    % Quality metrics panel
+    metricsPanel = uipanel(resultsGrid, ...
+                          'Title', 'Quality Metrics', ...
+                          'BackgroundColor', [0.98 0.98 0.98]);
+    
+    metricsGrid = uigridlayout(metricsPanel, [2 4], ...
+                              'ColumnWidth', {'1x', '1x', '1x', '1x'}, ...
+                              'RowHeight', {25, 25});
+    
+    % Individual metrics
+    metricLabels = {'Grain Size', 'Roundness', 'Color Index', 'Purity'};
+    metricLabelHandles = gobjects(1, 4);
+    metricValueHandles = gobjects(1, 4);
+    
+    for i = 1:4
+        metricLabelHandles(i) = uilabel(metricsGrid, ...
+                           'Text', metricLabels{i}, ...
+                           'FontSize', 11, ...
+                           'FontWeight', 'bold');
+        metricLabelHandles(i).Layout.Row = 1;
+        metricLabelHandles(i).Layout.Column = i;
+        
+        metricValueHandles(i) = uilabel(metricsGrid, ...
+                           'Text', '---', ...
+                           'FontSize', 11, ...
+                           'FontColor', [0.2 0.4 0.6], ...
+                           'FontWeight', 'bold');
+        metricValueHandles(i).Layout.Row = 2;
+        metricValueHandles(i).Layout.Column = i;
+    end
+    
+    % Thermal metrics
+    thermalLabel = uilabel(resultsGrid, ...
+                          'Text', 'Thermal Analysis:', ...
+                          'FontSize', 12, ...
+                          'FontWeight', 'bold');
+    
+    thermalValue = uilabel(resultsGrid, ...
+                          'Text', 'Not Analyzed', ...
+                          'FontSize', 12, ...
+                          'FontColor', [0.8 0.4 0], ...
+                          'FontWeight', 'bold');
+    
+    % Preprocessing status
+    preprocessLabel = uilabel(resultsGrid, ...
+                             'Text', 'Preprocessing Status:', ...
+                             'FontSize', 12, ...
+                             'FontWeight', 'bold');
+    
+    preprocessValue = uilabel(resultsGrid, ...
+                             'Text', 'Waiting...', ...
+                             'FontSize', 12, ...
+                             'FontColor', [0.5 0.5 0.5], ...
+                             'FontWeight', 'bold');
+    
+    % Detailed analysis
+    detailText = uitextarea(resultsGrid, ...
+                           'Value', 'Analysis results will appear here...', ...
+                           'Editable', 'off', ...
+                           'FontSize', 10, ...
+                           'BackgroundColor', [0.98 0.98 0.98]);
+    
+    % Store handles and data
+    appData = struct();
+    appData.fig = fig;
+    appData.imageAxes1 = imageAxes1;
+    appData.imageAxes2 = imageAxes2;
+    appData.statusLabel1 = statusLabel1;
+    appData.statusLabel2 = statusLabel2;
+    appData.qualityValue = qualityValue;
+    appData.metricValueHandles = metricValueHandles;
+    appData.thermalValue = thermalValue;
+    appData.preprocessValue = preprocessValue;
+    appData.detailText = detailText;
+    appData.currentImage = [];
+    appData.analysisResults = [];
+    appData.imagePath = '';
+    appData.imageLoaded = false;
+    appData.analyzed = false;
+    
+    % Store in figure user data
+    fig.UserData = appData;
+    
+    % ------------------- Callback Functions -------------------
+    
+    function loadImage()
+        % Load image from file
+        [filename, pathname] = uigetfile({'*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff', ...
+                                         'Image Files (*.jpg,*.png,*.bmp,*.tif)'}, ...
+                                         'Select Sand Sample Image');
+        
+        if isequal(filename, 0) || isequal(pathname, 0)
+            return;
+        end
+        
+        appData = fig.UserData;
+        appData.imagePath = fullfile(pathname, filename);
+        
+        try
+            % Read image
+            img = imread(appData.imagePath);
+            
+            % Store image
+            appData.currentImage = img;
+            appData.imageLoaded = true;
+            appData.analyzed = false;
+            
+            % Display original image
+            imshow(img, 'Parent', appData.imageAxes1);
+            title(appData.imageAxes1, filename, 'FontSize', 12, 'FontWeight', 'bold');
+            axis(appData.imageAxes1, 'image');
+            
+            % Update status
+            appData.statusLabel1.Text = 'Status: Image loaded - Processing...';
+            appData.statusLabel1.FontColor = [0 0.5 0];
+            
+            % Update app data
+            fig.UserData = appData;
+            
+            % Perform automatic preprocessing and analysis
+            performAnalysis();
+            
+            % Show success
+            uialert(fig, 'Image loaded and analyzed successfully!', 'Success', 'Icon', 'success');
+            
+        catch ME
+            appData.imageLoaded = false;
+            appData.statusLabel1.Text = 'Status: Error loading image';
+            appData.statusLabel1.FontColor = [0.8 0.2 0.2];
+            fig.UserData = appData;
+            uialert(fig, ['Error: ' ME.message], 'Error', 'Icon', 'error');
+        end
+    end
+    
+    function performAnalysis()
+        % Perform automatic preprocessing, heat map, and quality analysis
+        appData = fig.UserData;
+        
+        if ~appData.imageLoaded || isempty(appData.currentImage)
+            return;
+        end
+        
+        try
+            img = appData.currentImage;
+            
+            % ---------- PREPROCESSING ----------
+            appData.preprocessValue.Text = 'Preprocessing...';
+            appData.preprocessValue.FontColor = [0.8 0.4 0];
+            drawnow;
+            
+            % Convert to grayscale if RGB
+            if size(img, 3) == 3
+                grayImg = rgb2gray(img);
+            else
+                grayImg = img;
+            end
+            
+            % Enhance contrast
+            enhancedImg = imadjust(grayImg);
+            
+            % Apply median filter for noise removal
+            filteredImg = medfilt2(enhancedImg, [3 3]);
+            
+            % Edge detection
+            edges = edge(filteredImg, 'canny', [0.1 0.3]);
+            
+            % ---------- THERMAL HEAT MAP ----------
+            % Create heat map based on intensity distribution
+            heatMap = generateThermalMap(filteredImg);
+            
+            % Display thermal heat map
+            imshow(heatMap, 'Parent', appData.imageAxes2);
+            title(appData.imageAxes2, 'Thermal Heat Map', 'FontSize', 12, 'FontWeight', 'bold');
+            axis(appData.imageAxes2, 'image');
+            colormap(appData.imageAxes2, 'hot');
+            colorbar(appData.imageAxes2);
+            
+            % Update thermal status
+            appData.statusLabel2.Text = 'Status: Thermal analysis complete';
+            appData.statusLabel2.FontColor = [0 0.5 0];
+            
+            % ---------- QUALITY METRICS ----------
+            % Calculate quality metrics
+            metrics = calculateSandMetrics(filteredImg, img, edges);
+            
+            % Determine quality grade
+            [grade, gradeColor] = determineQualityGrade(metrics);
+            
+            % Update UI - Quality Grade
+            appData.qualityValue.Text = grade;
+            appData.qualityValue.FontColor = gradeColor;
+            
+            % Update metrics
+            metricValues = {sprintf('%.2f um', metrics.grainSize), ...
+                           sprintf('%.2f', metrics.roundness), ...
+                           sprintf('%.2f', metrics.colorIndex), ...
+                           sprintf('%.2f %%', metrics.purity * 100)};
+            
+            for i = 1:4
+                appData.metricValueHandles(i).Text = metricValues{i};
+            end
+            
+            % Update thermal value
+            thermalStats = calculateThermalStats(heatMap);
+            appData.thermalValue.Text = sprintf('Mean: %.2f | Peak: %.2f | Density: %.2f%%', ...
+                                               thermalStats.mean, thermalStats.peak, thermalStats.density * 100);
+            appData.thermalValue.FontColor = [0.8 0.2 0.2];
+            
+            % Update preprocessing status
+            appData.preprocessValue.Text = 'Completed - Enhanced & Filtered';
+            appData.preprocessValue.FontColor = [0 0.6 0];
+            
+            % Update detail text
+            detailStr = sprintf(['AUTOMATIC ANALYSIS REPORT\n', ...
+                               '========================================\n', ...
+                               'PREPROCESSING:\n', ...
+                               '  - Contrast Enhancement: Applied\n', ...
+                               '  - Noise Filtering: Applied (Median 3x3)\n', ...
+                               '  - Edge Detection: Applied (Canny)\n', ...
+                               '  - Thermal Mapping: Generated\n\n', ...
+                               'QUALITY METRICS:\n', ...
+                               '  Grain Size     : %.2f micrometers\n', ...
+                               '  Roundness      : %.2f (0-1 scale)\n', ...
+                               '  Color Index    : %.2f (0-1 scale)\n', ...
+                               '  Purity         : %.2f percent\n\n', ...
+                               'THERMAL STATISTICS:\n', ...
+                               '  Mean Temp      : %.2f\n', ...
+                               '  Peak Temp      : %.2f\n', ...
+                               '  Density        : %.2f%%\n\n', ...
+                               'QUALITY GRADE   : %s\n', ...
+                               '========================================\n', ...
+                               'RECOMMENDATION  : %s'], ...
+                               metrics.grainSize, metrics.roundness, ...
+                               metrics.colorIndex, metrics.purity * 100, ...
+                               thermalStats.mean, thermalStats.peak, ...
+                               thermalStats.density * 100, ...
+                               grade, getRecommendation(grade));
+            
+            appData.detailText.Value = detailStr;
+            
+            % Store results
+            appData.analysisResults = metrics;
+            appData.analysisResults.grade = grade;
+            appData.analysisResults.thermalStats = thermalStats;
+            appData.analyzed = true;
+            
+            fig.UserData = appData;
+            
+        catch ME
+            appData.preprocessValue.Text = 'Error in preprocessing';
+            appData.preprocessValue.FontColor = [0.8 0.2 0.2];
+            fig.UserData = appData;
+            uialert(fig, ['Analysis error: ' ME.message], 'Error', 'Icon', 'error');
+        end
+    end
+    
+    function heatMap = generateThermalMap(img)
+        % Generate thermal heat map from image
+        % Normalize image to 0-1 range
+        normImg = double(img) / 255;
+        
+        % Apply Gaussian smoothing for thermal effect
+        h = fspecial('gaussian', [15 15], 3);
+        smoothedImg = imfilter(normImg, h, 'replicate');
+        
+        % Enhance thermal regions
+        heatMap = imadjust(smoothedImg, [0.2 0.8], [0 1]);
+        
+        % Apply colormap transformation
+        heatMap = heatMap * 255;
+        heatMap = uint8(heatMap);
+    end
+    
+    function stats = calculateThermalStats(heatMap)
+        % Calculate thermal statistics
+        doubleMap = double(heatMap) / 255;
+        stats.mean = mean(doubleMap(:));
+        stats.peak = max(doubleMap(:));
+        stats.density = sum(doubleMap(:) > 0.7) / numel(doubleMap);
+    end
+    
+    function metrics = calculateSandMetrics(grayImg, rgbImg, edges)
+        % Calculate sand quality metrics
+        
+        % 1. Grain Size Estimation
+        stats = regionprops(edges, 'Area');
+        if ~isempty(stats)
+            areas = [stats.Area];
+            areas = areas(areas > 10);
+            if ~isempty(areas)
+                avgArea = mean(areas);
+                grainSize = sqrt(avgArea) * 0.5;
+            else
+                grainSize = 0.5;
+            end
+        else
+            grainSize = 0.5;
+        end
+        grainSize = min(max(grainSize, 0.1), 2.0);
+        
+        % 2. Roundness
+        if ~isempty(stats) && exist('areas', 'var') && ~isempty(areas)
+            perimeters = regionprops(edges, 'Perimeter');
+            if ~isempty(perimeters)
+                perim = [perimeters.Perimeter];
+                validIdx = perim > 0 & areas > 10;
+                if any(validIdx)
+                    circularity = 4 * pi * areas(validIdx) ./ (perim(validIdx).^2);
+                    circularity = circularity(circularity > 0 & circularity <= 1);
+                    if ~isempty(circularity)
+                        roundness = mean(circularity);
+                    else
+                        roundness = 0.5;
+                    end
+                else
+                    roundness = 0.5;
+                end
+            else
+                roundness = 0.5;
+            end
+        else
+            roundness = 0.5;
+        end
+        roundness = min(max(roundness, 0.1), 1.0);
+        
+        % 3. Color Index
+        if size(rgbImg, 3) == 3
+            hsv = rgb2hsv(rgbImg);
+            hueMean = mean2(hsv(:, :, 1));
+            colorIndex = 1 - min(abs(hueMean - 0.12) * 5, 0.9);
+        else
+            grayMean = mean2(grayImg);
+            colorIndex = 1 - min(abs(grayMean - 128) / 128, 0.9);
+        end
+        colorIndex = min(max(colorIndex, 0.1), 1.0);
+        
+        % 4. Purity
+        stdDev = std(double(grayImg(:)));
+        maxStd = 100;
+        purity = 1 - min(stdDev / maxStd, 0.9);
+        purity = min(max(purity, 0.1), 1.0);
+        
+        % Package metrics
+        metrics = struct();
+        metrics.grainSize = grainSize * 100;
+        metrics.roundness = roundness;
+        metrics.colorIndex = colorIndex;
+        metrics.purity = purity;
+    end
+    
+    function [grade, gradeColor] = determineQualityGrade(metrics)
+        % Determine quality grade
+        score = 0.3 * min(metrics.purity, 1) + ...
+                0.3 * min(metrics.roundness, 1) + ...
+                0.2 * min(metrics.colorIndex, 1) + ...
+                0.2 * (1 - min(metrics.grainSize / 500, 1));
+        
+        if score >= 0.85
+            grade = 'Excellent';
+            gradeColor = [0 0.6 0];
+        elseif score >= 0.7
+            grade = 'Good';
+            gradeColor = [0.2 0.6 0.2];
+        elseif score >= 0.5
+            grade = 'Fair';
+            gradeColor = [0.8 0.6 0];
+        else
+            grade = 'Poor';
+            gradeColor = [0.8 0.2 0.2];
+        end
+    end
+    
+    function recommendation = getRecommendation(grade)
+        switch grade
+            case 'Excellent'
+                recommendation = 'Ideal for construction and concrete applications.';
+            case 'Good'
+                recommendation = 'Suitable for most construction applications.';
+            case 'Fair'
+                recommendation = 'Requires processing or mixing with better quality sand.';
+            case 'Poor'
+                recommendation = 'Not recommended. Consider washing or sourcing better quality.';
+            otherwise
+                recommendation = 'Analysis incomplete.';
+        end
+    end
+    
+    function resetAll()
+        % Reset all data and UI
+        appData = fig.UserData;
+        
+        % Reset original image
+        cla(appData.imageAxes1);
+        title(appData.imageAxes1, 'No Image Loaded', 'FontSize', 12);
+        appData.statusLabel1.Text = 'Status: Waiting for input';
+        appData.statusLabel1.FontColor = [0.3 0.3 0.3];
+        
+        % Reset thermal image
+        cla(appData.imageAxes2);
+        title(appData.imageAxes2, 'No Analysis', 'FontSize', 12);
+        appData.statusLabel2.Text = 'Status: Waiting for analysis';
+        appData.statusLabel2.FontColor = [0.3 0.3 0.3];
+        
+        % Reset quality grade
+        appData.qualityValue.Text = 'Not Analyzed';
+        appData.qualityValue.FontColor = [0.5 0.5 0.5];
+        
+        % Reset metrics
+        for i = 1:4
+            appData.metricValueHandles(i).Text = '---';
+        end
+        
+        % Reset thermal value
+        appData.thermalValue.Text = 'Not Analyzed';
+        appData.thermalValue.FontColor = [0.8 0.4 0];
+        
+        % Reset preprocessing
+        appData.preprocessValue.Text = 'Waiting...';
+        appData.preprocessValue.FontColor = [0.5 0.5 0.5];
+        
+        % Reset detail text
+        appData.detailText.Value = 'Analysis results will appear here...';
+        
+        % Reset data
+        appData.currentImage = [];
+        appData.imagePath = '';
+        appData.imageLoaded = false;
+        appData.analyzed = false;
+        appData.analysisResults = [];
+        
+        fig.UserData = appData;
+        
+        uialert(fig, 'All data has been reset successfully!', 'Reset Complete', 'Icon', 'success');
+    end
+    
+end
